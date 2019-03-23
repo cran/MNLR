@@ -1,0 +1,392 @@
+---
+title: "Multinomial Logistic Regression"
+author: "Kartikeya  Bolar"
+output: ioslides_presentation
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(nnet)
+library(e1071)
+library(caret)
+library(datasets)
+library(stats)
+```
+##  About the instructor
+
+```{r,echo=FALSE}
+h6("", tags$img(src ="K.JPG", height= 400, width=400))
+```
+
+
+##  Why Multinomial logistic regression?
+
+-  Lot of options available  to the consumer in different products and services
+-  Hence multiple possible decisions regarding purchase or design
+-  Modelling the decision or choice of the consumer provides different insights
+   in
+  1.  Product Design
+  2.  Customer Segmentation
+
+
+
+## Key Ideas 
+
+1. Dependent variable is nominal scale and has more than two categories/classes/outcomes
+2. Independent variables can be qualitative or quantitative
+
+## Typical Applications ( Use Cases)
+
+1.  Distinguishing/Classifying the different variants of the product based on the features
+
+    Eg.  Understanding the Product Profile
+    
+2.  Predicting the customer choice of a particular product among different products in a product category
+
+    Eg.   Understanding the Customer Profile
+
+##  Assumptions and Conceptual idea 
+-  Independence of irrelevant alternatives
+```{r,echo=FALSE}
+h6("", tags$img(src ="IA.JPG", height= 200, width=400))
+```
+-  Recall binomial logistic regression 
+-  odds = (p/1-p)     p = probability of one event ,  1-p  =  probability of the event's complement
+-  log(odds) = bo + b1x1+ b2x2+ ....+bnxn    the logit model
+-  Consider Multinomial logistic as series of  binomial logistic regression models
+
+   
+## Assumptions and Conceptual idea
+-  Recall dummy variable multiple linear regression
+-  For n categories, there are n-1 dummy variables
+-  On similar lines, consider Multinomial logistic as n-1 binomial logistic regression models where there 
+   are n-categories in the dependent variable
+-  One of the categories in the dependent variable will be treated as reference for all the n-1 models
+-  Solve all n-1 binomial logistic regression models simultaneously to get the  probabilities of occurence 
+   of a particular category
+   
+   
+   
+## Product Classification Problem
+```{r,echo=FALSE}
+h6("", tags$img(src ="IRIS.JPG", height= 400, width=600))
+```
+
+
+## Exploring IRIS Dataset
+
+```{r,echo=FALSE}
+renderUI({
+      
+    data("iris")
+    dataset = data.frame(iris)
+     set.seed(1)
+     index = runif(nrow(dataset))
+     dataset = dataset[order(index),]
+     a =  split(names(dataset),sapply(dataset, function(x) paste(class(x), collapse=" ")))
+     a = data.frame(a$numeric)
+     selectInput("variablex","Select the variable",choices = a[,1] ,selected = unique(a[,1]) )
+     
+     })
+
+     
+    
+     renderPlot({
+    data("iris")
+    dataset = data.frame(iris)
+    set.seed(1)
+    index = runif(nrow(dataset))
+    dataset = dataset[order(index),]
+    attach(dataset)
+    boxplot(get(input$variablex) ~ Species, col = "red")})
+     
+     inputPanel(
+downloadButton("downloadPlot", "Download the Plot")
+)
+  
+output$downloadPlot <- downloadHandler(
+    filename = function() {
+      paste("irisplot", ".png", sep = "")
+    },
+    content = function(file) {
+      png(file)
+      
+      boxplot(get(input$variablex) ~ Species, col = "red",ylab = input$variablex,xlab = "Species")
+      dev.off()
+    })
+
+```
+
+## Training Model
+
+```{r,echo=FALSE}
+inputPanel(
+  textAreaInput("model","Enter the model",value =  "Species ~ Sepal.Length +  Sepal.Width + Petal.Length + Petal.Width"),
+  sliderInput("train_num", label = "Enter the proportion of training dataset:",
+                     min = 0.6, max = 1, value = 0.6, step = 0.01)
+)
+renderPrint({
+      
+      data("iris")
+      dataset1 = data.frame(iris)
+      set.seed(1)
+      index = runif(nrow(dataset1))
+       dataset1 = dataset1[order(index),]
+       prop = input$train_num
+       set.seed(1)
+       dataframe =  dataset1
+       train.rows = sample(row.names(dataframe),dim(dataframe)[1]*prop)
+       dataframet = dataframe[train.rows,]
+       valid.rows = setdiff(row.names(dataframe),train.rows)
+       dataframev = dataframe[valid.rows,]
+       mod = multinom(formula = input$model, data = dataframet,trace = FALSE)
+      print(mod)
+      # print(summary(mod))
+     #  print(round(coefficients(mod),0))
+      
+})
+
+```
+
+
+## Explaining Model for  prediction
+
+```{r,echo=FALSE}
+h6("", tags$img(src ="PW.JPG", height= 500, width=600))
+```
+
+
+
+
+## Evaluation of the Model
+```{r,echo=FALSE}
+renderPrint({   data("iris")
+                dataset = data.frame(iris)
+                set.seed(1)
+                index = runif(nrow(dataset))
+                 dataset = dataset[order(index),]
+       prop = input$train_num
+       set.seed(1)
+       dataframe =  dataset
+       train.rows = sample(row.names(dataframe),dim(dataframe)[1]*prop)
+       dataframet = dataframe[train.rows,]
+       valid.rows = setdiff(row.names(dataframe),train.rows)
+       dataframev = dataframe[valid.rows,]
+       mod = multinom(input$model, data = dataframet,trace = FALSE)
+       prediction = predict(mod, newdata=dataframev)
+       print(confusionMatrix(dataframev$Species,prediction))
+})
+
+```
+
+## Deployment 
+
+```{r}
+inputPanel(
+ numericInput("SL", label = "Sepal Length:",5.1),
+ numericInput("SW", label = "Sepal Width:", 3.5),
+ numericInput("PL", label = "Petal Length:",1.4),
+ numericInput("PW", label = "Petal Width:",0.2)
+)
+renderPrint({   data("iris")
+                dataset = data.frame(iris)
+                set.seed(1)
+                index = runif(nrow(dataset))
+                 dataset = dataset[order(index),]
+       prop = input$train_num
+       set.seed(1)
+       dataframe =  dataset
+       train.rows = sample(row.names(dataframe),dim(dataframe)[1]*prop)
+       dataframet = dataframe[train.rows,]
+       valid.rows = setdiff(row.names(dataframe),train.rows)
+       dataframev = dataframe[valid.rows,]
+       mod = multinom(input$model, data = dataframet,trace = FALSE)
+       newdatar = data.frame(Sepal.Length = input$SL, Sepal.Width = input$SW, Petal.Length = input$PL, Petal.Width = input$PW)
+       prediction = predict(mod, newdata= newdatar)
+        cat(sprintf("\nThe predicted flower is %s ",prediction))
+       predictionp = max(predict(mod, newdata = newdatar, type = "prob"))
+       cat(sprintf("\nThe probability is %f ",predictionp))
+       
+      
+})
+```
+
+
+## Customer Choice  Problem
+```{r,echo=FALSE}
+h6("", tags$img(src ="MP.JPG", height= 400, width=600))
+
+inputPanel(
+downloadButton("downloadData", "Download the dataset")
+)
+datasetInput <- reactive({
+    dataset2 = read.csv(system.file("extdata", "MC.csv", package = "MNLR"),header =  TRUE)
+  })
+output$downloadData <- downloadHandler(
+    filename = function() {
+      paste("ProductChoiceDataset", ".csv", sep = "")
+    },
+    content = function(file) {
+      write.csv(datasetInput(), file, row.names = FALSE)
+    }
+  )
+```
+
+## Exploring Customer Choice Dataset
+
+```{r,echo=FALSE}
+renderUI({
+   dataset2 = read.csv(system.file("extdata", "MC.csv", package = "MNLR"),header =  TRUE)
+     dataset = dataset2
+     a =  split(names(dataset),sapply(dataset, function(x) paste(class(x), collapse=" ")))
+     a = data.frame(a$integer)
+     selectInput("variablex1","Select the variable",choices = a )
+     })
+
+     
+    
+     renderPlot({
+    dataset2 = read.csv(system.file("extdata", "MC.csv", package = "MNLR"),header =  TRUE)
+     
+    attach(dataset2)
+    assocplot(table(get(input$variablex1),Product),col=c("green","red"))})
+  
+  inputPanel(
+downloadButton("downloadPlot2", "Download the Plot")
+)
+  
+output$downloadPlot2 <- downloadHandler(
+    filename = function() {
+      paste("MobileChoiceplot", ".png", sep = "")
+    },
+    content = function(file) {
+      png(file)
+     dataset2 = read.csv(system.file("extdata", "MC.csv", package = "MNLR"),header =  TRUE)
+     
+    attach(dataset2)
+    assocplot(table(get(input$variablex1),Product),col=c("green","red"),xlab = input$variablex1)
+      dev.off()
+    })
+
+```
+
+
+## Consumer Choice  Prediction and Deployment
+
+```{r}
+inputPanel(
+  textAreaInput("model1","Enter the model",value =  "Product ~ ."),
+ sliderInput("train_num1", label = "Enter the proportion of training dataset:",
+                     min = 0.6, max = 1, value = 0.6, step = 0.01),
+ sliderInput("is", label = "Enter Income Status :  1 for High and 0 for Low",
+                     min = 0, max = 1, value = 1, step = 1),
+ sliderInput("se", label = "Enter Selfie Enthusiast :  1 for Yes and 0 for No",
+                     min = 0, max = 1, value = 1, step = 1)
+ 
+)
+
+renderPrint({   
+       dataset2 = read.csv(system.file("extdata", "MC.csv", package = "MNLR"),header =  TRUE)
+       
+       prop = input$train_num1
+       set.seed(1)
+       dataframe =  dataset2
+       train.rows = sample(row.names(dataframe),dim(dataframe)[1]*prop)
+       dataframet = dataframe[train.rows,]
+       valid.rows = setdiff(row.names(dataframe),train.rows)
+       dataframev = dataframe[valid.rows,]
+       mod = multinom(input$model1, data = dataframet,trace = FALSE)
+       newdatar = data.frame(IncomeStatus =  input$is,SelfieEnthusiast = input$se)
+       prediction = predict(mod, newdata= newdatar)
+        cat(sprintf("\nThe predicted Mobile Phone Product is %s ",prediction))
+       predictionp = max(predict(mod, newdata = newdatar, type = "prob"))
+       cat(sprintf("\nThe probability is %f ",predictionp))
+       
+      
+})
+```
+
+
+## Best Practices of Multinomial Logistic Regression Usage in  Industry
+
+-  Used for  profiling risk  of  different types of  products(especially harmful) 
+
+-  Used for validating the customer segments or product variants after clustering    technique
+
+-  Development of score cards based on the computation of probability 
+
+-  Used for profiling behavioral risk of customers/subjects
+
+
+
+
+## Summary 
+-   A linear combination of the observed features and some problem-specific parameters to estimate the probability of each particular value of the dependent variable. 
+- The best values of the parameters for a given problem are usually determined from training data
+- A dependent variable cannot be meaningfully ordered
+
+
+##  Try out for Any data set
+
+
+```{r}
+
+inputPanel(
+
+#,
+fileInput("file", "Upload the *.csv file with headers"),
+textAreaInput("model2", "Enter the model")
+
+)
+
+renderPrint({
+      
+     file1 = input$file
+     if(is.null(file1)){return()}
+     
+     data =  read.table(file =  file1$datapath,sep =",",header = TRUE)
+     if(is.null(data())){return()}
+     
+     print(head(data,1))
+      
+     
+      
+    
+   })
+renderPrint({
+      
+      file1 = input$file
+     if(is.null(file1)){return()}
+     
+     data =  read.table(file =  file1$datapath,sep =",",header = TRUE)
+     if(is.null(data())){return()}
+     
+     datai = data.frame(data)
+       mod2 = multinom(formula = input$model2, data = datai,trace = FALSE)
+    
+      print(mod2)
+
+     
+      
+   })
+
+```
+
+##  RScript
+```{r,echo=FALSE}
+h6("", tags$img(src ="RS.JPG", height= 500, width=600))
+inputPanel(
+downloadButton("downloadCode", "Download the Rcode")
+)
+datasetInput2<- reactive({
+    dataset3 = read.csv(system.file("extdata", "multinom.txt", package = "MNLR"))
+  })
+output$downloadCode <- downloadHandler(
+    filename = function() {
+      paste("RCode", ".R", sep = "")
+    },
+    content = function(file) {
+      write.csv(datasetInput2(), file,row.names = FALSE,fileEncoding = "")
+    })
+```

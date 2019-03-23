@@ -1,0 +1,34 @@
+library(nnet)
+library(caret)
+library(datasets)
+# Getting the dataset iris
+data("iris")
+#preprocessing the dataset
+
+set.seed(1)
+gp =  runif(150)
+irisnew =  iris[order(gp),]
+irisnew$Species2 = relevel(irisnew$Species, ref = "versicolor")
+#Splitting the dataset into training and validation datasets
+dataframe = irisnew
+set.seed(1)
+prop = 0.7
+train.rows = sample(row.names(dataframe),dim(dataframe)[1]*prop)
+dataframet = dataframe[train.rows,]
+valid.rows = setdiff(row.names(dataframe),train.rows)
+dataframev = dataframe[valid.rows,]
+# Getting the model from the training dataset
+model = multinom(Species2 ~ Sepal.Length + Sepal.Width + Petal.Width + Petal.Length, data = dataframet,trace = FALSE)
+options(scipen = 999)
+print(model)
+# Getting the predictions from the validation dataset
+prediction = predict(model, newdata=dataframev)
+# Evaluating the model
+confusionMatrix(prediction,dataframev$Species2)
+#Deploying the solution with test data
+testdata =  data.frame(Sepal.Length = 0, Sepal.Width = 0, Petal.Length = 0,Petal.Width =10)
+predictiontestdata = predict(model, newdata=testdata)
+cat(sprintf("\nThe flower is %s",predictiontestdata))
+predictiontestdataprob = max(predict(model, newdata=testdata, type = "prob"))
+cat(sprintf("\nThe probability is %f",predictiontestdataprob))
+
